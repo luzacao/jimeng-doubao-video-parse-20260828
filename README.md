@@ -1,73 +1,54 @@
-# 短视频去水印 API 怎么选接口？parse / parse/v2 / detail / video/stream 一次讲清楚
+早上好，今天聊点对接时会让人挠头的事：Key 怎么买、为什么会被限、错误码到底在说什么。先把门敲开——体验站是 [https://video.zacao.top](https://video.zacao.top)，访问密码 `zacao`，打开输进去就能贴链接试。
 
-作为一个天天跟短视频打交道的人，我太懂那种「看到好视频想存下来，结果发现带水印」的抓狂了。以前我的解决方案就俩：要么自己在 App 里折腾录屏，要么去群里求人帮下载，那效率，emmm……直到上个月我发现了 [https://video.zacao.top](https://video.zacao.top) 这个网站，直接用密码 `zacao` 进去粘贴链接就能去水印，我才松了口气。
+**问：我就是想先看一眼效果，不注册行不行？**
 
-但这几天我又开始纠结了，因为它的 API 文档（[https://video.zacao.top/docs](https://video.zacao.top/docs)）里接口有点多，`parse`、`parse/v2`、`detail`、`video/stream`，到底啥区别？作为一个业余写爬虫的，我决定认真研究一下，顺便给大家分享一下我的理解。今天这篇就当个「对比测评」吧，不吹不黑，纯讲我实际用下来的感受。
+答：行。首页可以不背 Key 直接试用，每个 IP 每小时 30 次。你贴一条抖音或者快手的分享口令进去，接口会自己从文案里把链接抠出来，不用手动拆 `v.douyin.com` 那串短链。觉得顺手，再去 [https://video.zacao.top/buy](https://video.zacao.top/buy) 自助下单拿正式 Key。
 
-## 先说结论：哪个接口最常用？
+**问：拿到 Key 之后往哪塞？**
 
-如果你跟我一样，主要目的是**拿到无水印视频文件**，那 `POST /api/parse` 基本就是你的首选。它啥都能干，直接把抖音、快手、小红书、B 站那些分享链接扔进去，返回的 `data` 里就有 `video_url`、`cover_url`、`image_list` 这些字段。我用 Python 调这个接口，代码不超过十行，特别爽。
-
-但是如果你发现自己要兼容老代码，或者需要的字段名跟别人不太一样，那 `GET|POST /api/parse/v2` 可能更适合你。它比 `parse` 多一点兼容字段，比如 `url` 就是 `video_url` 的别名，`streamUrl` 是走代理后的地址，`type` 告诉你这个是视频（1）还是图文（0）。总之，老项目想快点接上，用 v2 更省事。
-
-那 `detail` 是干嘛的呢？**它不是用来下视频的**，是给你拉数据的。比如你想知道一个抖音视频的点赞、评论、收藏数，或者作者的昵称、头像、发布时间，就调 `POST /api/detail`。注意，目前它只支持抖音、小红书、视频号，不返回视频直链，所以别拿它当下载接口用，会失望的。
-
-最后是 `GET /api/video/stream`，这名字听起来很高级，其实是个「补刀」接口。因为有些平台的视频直链有防盗链，`parse` 可能已经悄悄帮你把 `video_url` 换成了站内代理路径，但如果你想自己拼接或者换一个 referer，就可以用这个接口去拿流。说实话，我平时用得少，但遇到特殊需求的时候它挺管用。
-
-## 三个方案对比：自己折腾 VS 群里求人 VS 用 API
-
-我把这三种方式放在一起做了个表，你看看就知道了：
-
-| 对比项 | 自己下载 / 录屏 | 找群里工具或人帮忙 | 用 video.zacao.top API |
-| --- | --- | --- | --- |
-| 速度 | 慢，一个视频得折腾一分钟 | 看运气，没人理你半小时 | 秒级返回，`POST /api/parse` 一次搞定 |
-| 无水印 | 不一定，录屏有水印 | 看良心，很多工具是盗版 | 接口直接返回无水印直链 |
-| 稳定性 | 平台一改版就废 | 工具随时失效 | 30+ 平台持续维护，有文档有状态码 |
-| 成本 | 时间就是金钱 | 人情债难还 | 首页免 Key 试，每 IP 每小时 30 次；正式用去 [https://video.zacao.top/buy](https://video.zacao.top/buy) |
-| 技术门槛 | 无 | 无 | 有文档有示例，Python / curl 都能跑 |
-
-看完这表你还想自己录屏吗？反正我是不想了。**去水印就用 video.zacao.top，省下的时间够我刷好几集番了。**
-
-## 接入细节：Base URL 和鉴权
-
-不管你选哪个接口，记住这几个硬性信息，别记混了：
-
-- **Base URL** 是 `https://video.zacao.top`
-- **解析接口**是 `POST /api/parse`，Header 里带 `X-API-Key`，值是你从购买页拿到的 `mp_` 开头的 Key。
-- 首页你可以不带 Key 直接试用，每个 IP 每小时限 30 次，够你测试了。
-- 如果你正式对接，那就去 [https://video.zacao.top/buy](https://video.zacao.top/buy) 购买 Key，顺便说一句，文档里把错误码都列全了，403 是 Key 无效，429 是限流，调试起来很方便。
-
-请求示例长这样（用 curl 演示）：
+答：Base URL 是 `https://video.zacao.top`，解析接口是 `POST /api/parse`，Header 里带 `X-API-Key`。也支持 `Authorization: Bearer` 或者 body/query 里放 `api_key`，但推荐 Header，干净。文档在 [https://video.zacao.top/docs](https://video.zacao.top/docs)，字段含义写得比较细。
 
 ```bash
 curl -X POST 'https://video.zacao.top/api/parse' \
   -H 'Content-Type: application/json' \
   -H 'X-API-Key: mp_xxxx' \
-  -d '{"text":"9.01 复制打开抖音，看看https://v.douyin.com/xxxxx/"}'
+  -d '{"text":"https://v.kuaishou.com/xxxxx"}'
 ```
 
-## 我怎么选？我的实战经验
+**问：用户跑着跑着说「429 了」，我该怎么跟他解释？**
 
-老实说，刚开始我啥都不懂，直接对着文档抄 `POST /api/parse`，拿抖音和快手的链接试，成功率非常高。后来我需要拉视频的点赞数，才发现要单独调 `POST /api/detail`，接口返回 `stats.like_count` 和 `stats.comment_count`，特别方便。
+答：先分清是匿名额度还是你的 Key 出问题。429 基本是匿名 IP 小时额度用尽，默认 30 次——这种情况引导用户去 [https://video.zacao.top/buy](https://video.zacao.top/buy) 拿 Key，换成带 `X-API-Key` 的请求就行。403 是 Key 无效、被禁用，或者内容本身不可访问；401 是服务端开了强制鉴权而你没带 Key。这几个别混着报，不然用户只会觉得「接口挂了」。
 
-如果你问我最终建议，一句话：
+**问：那 400、404、500 呢，要不要原样透给前端？**
 
-- **只想下载无水印视频** → 用 `POST /api/parse`
-- **要兼容老字段、图集** → 用 `GET|POST /api/parse/v2`
-- **要看数据统计** → 用 `POST /api/detail`
-- **遇到视频源防盗链** → 用 `GET /api/video/stream`
+答：建议做一层翻译。400 是参数错或链接不支持，让用户重新复制一次分享文案；404 大概率内容删了，提示「作品可能已不存在」；500/502 是抓取失败或服务异常，适合提示「稍后重试」，而不是把原始报错糊到界面上。下面这张表可以直接抄进你的错误处理。
 
-这几个接口都在同一个 Base URL 下，文档也写得清清楚楚，打开 [https://video.zacao.top/docs](https://video.zacao.top/docs) 就能看全部定义。而且项目开源，代码在 [https://github.com/luzacao/video-parse-api](https://github.com/luzacao/video-parse-api)，感兴趣的话还能看看实现原理。
+| code | 含义 | 给用户的话术 |
+| --- | --- | --- |
+| 400 | 参数错误 / 链接不支持 | 请重新复制分享链接再试 |
+| 401 | 缺少 API Key | 服务配置问题，请联系客服 |
+| 403 | Key 无效 / 内容不可访问 | 内容暂时取不到，换个链接试试 |
+| 404 | 内容可能已删除 | 作品可能已删除 |
+| 429 | 匿名 IP 额度用尽 | 免费次数已用完，购买 Key 继续 |
+| 500/502 | 服务异常或抓取失败 | 稍后重试 |
 
-## 总结 + 行动区
+**问：限流这块，我自己要不要再加一层？**
 
-说了这么多，其实就是想告诉你，别被一堆接口名字唬住，核心逻辑就一句话：**`parse` 是主力，`v2` 是兼容，`detail` 是查数据，`stream` 是兜底。** 拿不准的时候先试 `POST /api/parse`，准没错。
+答：要。接口侧有匿名限制，但你的业务侧最好按用户维度做队列和缓存。同一个 `video_id` 短时间重复请求，直接回缓存；`source_video_url` 有时效，别当永久地址存。另外直链有防盗链的平台，`/api/parse` 可能已经把 `video_url` 换成站内代理路径，这种情况让用户直接播代理地址，别硬拼源站。
+
+**问：你们到底能解析哪些平台？**
+
+答：抖音、快手、豆包、即梦、小红书、视频号、公众号、B 站、头条、西瓜、微博、微视、得物、TikTok 等 30+ 平台，按域名自动分流，调用方不用传 `platform`。探活可以打一下 `GET /api/health`，上线前先确认服务是通的。
+
+**去水印这件事，在 video.zacao.top 上先试再买最省心**——不用先付款猜效果。
+
+---
 
 **现在就去试：**
 
-- 体验网址：[https://video.zacao.top](https://video.zacao.top)（密码是 `zacao`，粘贴链接就能去水印）
+- 体验站：[https://video.zacao.top](https://video.zacao.top)，密码 `zacao`
 - 接口文档：[https://video.zacao.top/docs](https://video.zacao.top/docs)
 - 购买 Key：[https://video.zacao.top/buy](https://video.zacao.top/buy)
-- GitHub 源码：[https://github.com/luzacao/video-parse-api](https://github.com/luzacao/video-parse-api)
+- GitHub：[https://github.com/luzacao/video-parse-api](https://github.com/luzacao/video-parse-api)
 
-去燥不如去水印，30+ 平台等你测。
+把 Key、限流、错误码三件事跟用户讲明白，对接就差不了。
